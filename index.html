@@ -1,0 +1,1332 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full bg-slate-950 text-slate-100">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>3D GLB Studio Pro</title>
+
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Three.js and essential libraries -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/TransformControls.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/exporters/GLTFExporter.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/OBJLoader.js"></script>
+
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap');
+
+        :root {
+            --liquid-glass: rgba(255, 255, 255, 0.12);
+            --liquid-border: rgba(255, 255, 255, 0.22);
+            --liquid-blur: blur(28px) saturate(210%);
+            --liquid-glow: 0 12px 40px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.3);
+            --squircle: 24px;
+        }
+
+        body {
+            font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: #060713;
+            color: #f3f4f6;
+            overflow: hidden;
+            touch-action: none;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        /*  Glassmorphic Containers */
+        .liquid-glass {
+            background: var(--liquid-glass);
+            backdrop-filter: var(--liquid-blur);
+            -webkit-backdrop-filter: var(--liquid-blur);
+            border: 1px solid var(--liquid-border);
+            box-shadow: var(--liquid-glow);
+            border-radius: var(--squircle);
+        }
+
+        .liquid-card {
+            background: rgba(255, 255, 255, 0.06);
+            backdrop-filter: blur(16px) saturate(180%);
+            -webkit-backdrop-filter: blur(16px) saturate(180%);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            border-radius: 18px;
+        }
+
+        .liquid-pill {
+            background: rgba(255, 255, 255, 0.15);
+            backdrop-filter: blur(24px);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            border-radius: 9999px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+        }
+
+        .liquid-btn {
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            backdrop-filter: blur(12px);
+            border-radius: 14px;
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .liquid-btn:hover {
+            background: rgba(255, 255, 255, 0.2);
+            border-color: rgba(255, 255, 255, 0.4);
+        }
+
+        .liquid-btn:active {
+            transform: scale(0.94);
+            background: rgba(255, 255, 255, 0.32);
+        }
+
+        .liquid-btn-accent {
+            background: linear-gradient(135deg, rgba(6, 182, 212, 0.85), rgba(59, 130, 246, 0.85));
+            border: 1px solid rgba(255, 255, 255, 0.4);
+            box-shadow: 0 0 25px rgba(6, 182, 212, 0.4);
+            color: #ffffff;
+        }
+
+        /* Dynamic Fluid Background Orbs */
+        .glow-orb {
+            position: absolute;
+            border-radius: 50%;
+            filter: blur(100px);
+            pointer-events: none;
+            z-index: 0;
+            opacity: 0.4;
+            animation: floatOrb 15s infinite alternate ease-in-out;
+        }
+        .glow-orb-1 { width: 320px; height: 320px; background: #8b5cf6; top: -80px; left: -80px; }
+        .glow-orb-2 { width: 380px; height: 380px; background: #06b6d4; bottom: -80px; right: -80px; animation-delay: -6s; }
+        .glow-orb-3 { width: 280px; height: 280px; background: #ec4899; top: 35%; left: 35%; animation-delay: -10s; }
+
+        @keyframes floatOrb {
+            0% { transform: translate(0, 0) scale(1); }
+            100% { transform: translate(50px, 60px) scale(1.18); }
+        }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar { width: 5px; height: 5px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.22); border-radius: 10px; }
+
+        /* Virtual Touch Joystick */
+        .joystick-container {
+            width: 120px;
+            height: 120px;
+            background: rgba(255,255,255,0.12);
+            border: 1px solid rgba(255,255,255,0.3);
+            backdrop-filter: blur(12px);
+            border-radius: 50%;
+            position: relative;
+            touch-action: none;
+        }
+        .joystick-knob {
+            width: 48px;
+            height: 48px;
+            background: rgba(255,255,255,0.8);
+            border-radius: 50%;
+            position: absolute;
+            top: 36px;
+            left: 36px;
+            box-shadow: 0 0 20px rgba(255,255,255,0.6);
+            pointer-events: none;
+        }
+    </style>
+</head>
+<body class="relative w-screen h-screen overflow-hidden">
+
+    <div class="glow-orb glow-orb-1"></div>
+    <div class="glow-orb glow-orb-2"></div>
+    <div class="glow-orb glow-orb-3"></div>
+
+    <!-- Main WebGL 3D Viewport -->
+    <div id="canvas-container" class="absolute inset-0 w-full h-full z-0 cursor-grab active:cursor-grabbing"></div>
+
+    <header class="absolute top-3 left-3 right-3 z-20 flex items-center justify-between pointer-events-none">
+        <div class="liquid-glass px-4 py-2.5 flex items-center gap-3 pointer-events-auto">
+            <div class="w-10 h-10 rounded-2xl bg-gradient-to-tr from-cyan-400 via-blue-500 to-indigo-600 flex items-center justify-center shadow-lg">
+                <i class="fa-solid fa-cube text-white text-xl"></i>
+            </div>
+            <div>
+                <div class="flex items-center gap-2">
+                    <h1 class="font-extrabold text-sm tracking-wide text-white leading-tight">3D GLB Studio</h1>
+                    <span id="studio-mode-badge" class="px-2 py-0.5 rounded-full text-[9px] font-bold bg-cyan-500/30 text-cyan-300 border border-cyan-400/30">QUICK</span>
+                </div>
+                <p class="text-[10px] text-cyan-300/80 font-semibold tracking-wider uppercase">nelson</p>
+            </div>
+        </div>
+
+        <div class="flex items-center gap-2 pointer-events-auto">
+            <!-- Mode Toggle Switcher (Quick vs Pro vs Playtest) -->
+            <div class="liquid-glass p-1 flex gap-1">
+                <button id="mode-quick-btn" onclick="setStudioMode('quick')" class="liquid-btn px-3 py-1.5 text-xs font-semibold text-white bg-white/20">
+                    <i class="fa-solid fa-bolt text-amber-400 mr-1"></i> Simple
+                </button>
+                <button id="mode-pro-btn" onclick="setStudioMode('pro')" class="liquid-btn px-3 py-1.5 text-xs font-semibold text-white/70">
+                    <i class="fa-solid fa-screwdriver-wrench text-cyan-400 mr-1"></i> Pro
+                </button>
+                <button id="mode-play-btn" onclick="switchEngineMode('play')" class="liquid-btn px-3 py-1.5 text-xs font-semibold text-white/70">
+                    <i class="fa-solid fa-gamepad text-emerald-400 mr-1"></i> Playtest
+                </button>
+            </div>
+
+            <!-- Import File -->
+            <label class="liquid-btn px-3 py-2 text-xs font-bold text-white flex items-center gap-1.5 cursor-pointer">
+                <i class="fa-solid fa-file-import text-purple-400"></i> <span class="hidden sm:inline">Import</span>
+                <input type="file" id="import-file-input" accept=".glb,.gltf,.obj" class="hidden" onchange="importModelFile(event)">
+            </label>
+
+            <!-- Export GLB -->
+            <button onclick="exportGLB()" class="liquid-btn liquid-btn-accent px-4 py-2 text-xs font-bold flex items-center gap-2 rounded-2xl shadow-lg">
+                <i class="fa-solid fa-download"></i> <span>Export GLB</span>
+            </button>
+        </div>
+    </header>
+
+    <div id="build-floating-bar" class="absolute bottom-5 left-1/2 -translate-x-1/2 z-20 pointer-events-auto">
+        <div class="liquid-pill px-3 py-2 flex items-center gap-2 max-w-[95vw] overflow-x-auto">
+            <!-- Transform Gizmo Tools -->
+            <div class="flex items-center gap-1 pr-2 border-r border-white/20">
+                <button onclick="setTransformGizmo('translate')" id="tool-translate" class="liquid-btn p-2.5 text-cyan-400 text-xs w-9 h-9 flex items-center justify-center bg-white/20" title="Move">
+                    <i class="fa-solid fa-arrows-up-down-left-right"></i>
+                </button>
+                <button onclick="setTransformGizmo('rotate')" id="tool-rotate" class="liquid-btn p-2.5 text-white/70 text-xs w-9 h-9 flex items-center justify-center" title="Rotate">
+                    <i class="fa-solid fa-rotate"></i>
+                </button>
+                <button onclick="setTransformGizmo('scale')" id="tool-scale" class="liquid-btn p-2.5 text-white/70 text-xs w-9 h-9 flex items-center justify-center" title="Scale">
+                    <i class="fa-solid fa-expand"></i>
+                </button>
+            </div>
+
+            <!-- Main Panel Openers -->
+            <button onclick="togglePanel('primitives-panel')" class="liquid-btn px-3 py-2 text-xs text-white flex items-center gap-1.5 font-medium whitespace-nowrap">
+                <i class="fa-solid fa-shapes text-cyan-400"></i> Add
+            </button>
+
+            <!-- Advanced Tool Drawers (Sculpt / Voxel / Gallery) -->
+            <button onclick="togglePanel('sculpt-panel')" class="liquid-btn px-3 py-2 text-xs text-white flex items-center gap-1.5 font-medium whitespace-nowrap border-pink-500/30">
+                <i class="fa-solid fa-hand-pointer text-pink-400"></i> Sculpt
+            </button>
+
+            <button onclick="togglePanel('voxel-panel')" class="liquid-btn px-3 py-2 text-xs text-white flex items-center gap-1.5 font-medium whitespace-nowrap border-emerald-500/30">
+                <i class="fa-solid fa-cubes text-emerald-400"></i> Voxel
+            </button>
+
+            <button onclick="togglePanel('gallery-panel')" class="liquid-btn px-3 py-2 text-xs text-white flex items-center gap-1.5 font-medium whitespace-nowrap bg-purple-500/20 border-purple-400/40">
+                <i class="fa-solid fa-photo-film text-fuchsia-400"></i> Gallery 3D
+            </button>
+
+            <button onclick="togglePanel('pro-tools-panel')" id="pro-tools-dock-btn" class="hidden liquid-btn px-3 py-2 text-xs text-white flex items-center gap-1.5 font-medium whitespace-nowrap border-amber-500/30">
+                <i class="fa-solid fa-wand-magic-sparkles text-amber-400"></i> Advanced
+            </button>
+
+            <!-- Inspector & Hierarchy Drawer Triggers -->
+            <div class="flex items-center gap-1 pl-2 border-l border-white/20">
+                <button onclick="togglePanel('inspector-panel')" class="liquid-btn p-2.5 text-white/80 text-xs w-9 h-9 flex items-center justify-center" title="Materials & Inspector">
+                    <i class="fa-solid fa-sliders"></i>
+                </button>
+                <button onclick="togglePanel('hierarchy-panel')" class="liquid-btn p-2.5 text-white/80 text-xs w-9 h-9 flex items-center justify-center" title="Scene Hierarchy">
+                    <i class="fa-solid fa-layer-group"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div id="primitives-panel" class="hidden absolute top-16 left-3 right-3 sm:left-4 sm:w-88 z-30 liquid-glass p-4 pointer-events-auto max-h-[82vh] overflow-y-auto">
+        <div class="flex items-center justify-between mb-3">
+            <h3 class="font-bold text-sm text-white flex items-center gap-2">
+                <i class="fa-solid fa-shapes text-cyan-400"></i> 3D Shapes & Assets
+            </h3>
+            <button onclick="togglePanel('primitives-panel')" class="text-white/60 hover:text-white"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+
+        <p class="text-[10px] text-cyan-300/80 font-bold uppercase tracking-wider mb-2">Basic Primitives</p>
+        <div class="grid grid-cols-4 gap-2 mb-4">
+            <button onclick="addPrimitive('cube')" class="liquid-btn p-2 flex flex-col items-center gap-1 text-[10px] text-white/90"><i class="fa-solid fa-cube text-cyan-400 text-base"></i> Cube</button>
+            <button onclick="addPrimitive('sphere')" class="liquid-btn p-2 flex flex-col items-center gap-1 text-[10px] text-white/90"><i class="fa-regular fa-circle text-blue-400 text-base"></i> Sphere</button>
+            <button onclick="addPrimitive('cylinder')" class="liquid-btn p-2 flex flex-col items-center gap-1 text-[10px] text-white/90"><i class="fa-solid fa-database text-teal-400 text-base"></i> Cylinder</button>
+            <button onclick="addPrimitive('capsule')" class="liquid-btn p-2 flex flex-col items-center gap-1 text-[10px] text-white/90"><i class="fa-solid fa-capsules text-purple-400 text-base"></i> Capsule</button>
+            <button onclick="addPrimitive('cone')" class="liquid-btn p-2 flex flex-col items-center gap-1 text-[10px] text-white/90"><i class="fa-solid fa-play -rotate-90 text-rose-400 text-base"></i> Cone</button>
+            <button onclick="addPrimitive('torus')" class="liquid-btn p-2 flex flex-col items-center gap-1 text-[10px] text-white/90"><i class="fa-solid fa-circle-notch text-amber-400 text-base"></i> Torus</button>
+            <button onclick="addPrimitive('ramp')" class="liquid-btn p-2 flex flex-col items-center gap-1 text-[10px] text-white/90"><i class="fa-solid fa-chart-line text-emerald-400 text-base"></i> Ramp</button>
+            <button onclick="addPrimitive('staircase')" class="liquid-btn p-2 flex flex-col items-center gap-1 text-[10px] text-white/90"><i class="fa-solid fa-stairs text-fuchsia-400 text-base"></i> Stairs</button>
+            <button onclick="addPrimitive('pipe')" class="liquid-btn p-2 flex flex-col items-center gap-1 text-[10px] text-white/90"><i class="fa-solid fa-bullhorn text-sky-400 text-base"></i> Pipe</button>
+            <button onclick="addPrimitive('dodecahedron')" class="liquid-btn p-2 flex flex-col items-center gap-1 text-[10px] text-white/90"><i class="fa-solid fa-gem text-indigo-400 text-base"></i> Dodeca</button>
+            <button onclick="addPrimitive('ring')" class="liquid-btn p-2 flex flex-col items-center gap-1 text-[10px] text-white/90"><i class="fa-regular fa-life-ring text-orange-400 text-base"></i> Ring</button>
+            <button onclick="addPrimitive('plane')" class="liquid-btn p-2 flex flex-col items-center gap-1 text-[10px] text-white/90"><i class="fa-solid fa-square text-lime-400 text-base"></i> Plane</button>
+        </div>
+
+        <p class="text-[10px] text-cyan-300/80 font-bold uppercase tracking-wider mb-2">Game Ready Starter Presets</p>
+        <div class="grid grid-cols-2 gap-2">
+            <button onclick="loadStarterTemplate('sword')" class="liquid-btn p-2 text-xs text-left text-white/90 flex items-center gap-2"><i class="fa-solid fa-wand-magic-sparkles text-amber-400"></i> Stylized Sword</button>
+            <button onclick="loadStarterTemplate('tree')" class="liquid-btn p-2 text-xs text-left text-white/90 flex items-center gap-2"><i class="fa-solid fa-tree text-emerald-400"></i> Low-Poly Tree</button>
+            <button onclick="loadStarterTemplate('crate')" class="liquid-btn p-2 text-xs text-left text-white/90 flex items-center gap-2"><i class="fa-solid fa-box text-orange-400"></i> Sci-Fi Crate</button>
+            <button onclick="loadStarterTemplate('barrel')" class="liquid-btn p-2 text-xs text-left text-white/90 flex items-center gap-2"><i class="fa-solid fa-oil-can text-rose-400"></i> Barrel</button>
+            <button onclick="loadStarterTemplate('chest')" class="liquid-btn p-2 text-xs text-left text-white/90 flex items-center gap-2"><i class="fa-solid fa-vault text-yellow-400"></i> Treasure Chest</button>
+            <button onclick="loadStarterTemplate('dummy')" class="liquid-btn p-2 text-xs text-left text-white/90 flex items-center gap-2"><i class="fa-solid fa-person text-indigo-400"></i> Character Dummy</button>
+        </div>
+    </div>
+
+    <div id="gallery-panel" class="hidden absolute top-16 left-3 right-3 sm:left-auto sm:right-4 sm:w-96 z-30 liquid-glass p-5 pointer-events-auto transition-all max-h-[82vh] overflow-y-auto">
+        <div class="flex items-center justify-between mb-4">
+            <h3 class="font-bold text-sm text-white flex items-center gap-2">
+                <i class="fa-solid fa-photo-film text-fuchsia-400"></i> Phone Gallery to 3D
+            </h3>
+            <button onclick="togglePanel('gallery-panel')" class="text-white/60 hover:text-white"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+
+        <!-- Phone Photo Dropzone -->
+        <label class="liquid-card border-dashed border-2 border-fuchsia-400/40 p-5 flex flex-col items-center justify-center text-center cursor-pointer hover:border-fuchsia-400 transition-colors mb-4">
+            <i class="fa-solid fa-cloud-arrow-up text-3xl text-fuchsia-400 mb-2 animate-bounce"></i>
+            <span class="text-xs font-bold text-white">Choose Photo from Phone Gallery</span>
+            <span class="text-[10px] text-white/50 mt-1">Direct upload for Textures, Reliefs & Decals</span>
+            <input type="file" id="phone-photo-input" accept="image/*" class="hidden" onchange="handlePhonePhotoUpload(event)">
+        </label>
+
+        <!-- Preview & Conversion Modes -->
+        <div id="photo-options" class="hidden space-y-4">
+            <div class="flex items-center gap-3 liquid-card p-3">
+                <img id="photo-preview" class="w-16 h-16 object-cover rounded-xl border border-white/20 shadow-md" src="" alt="Preview">
+                <div class="text-xs">
+                    <p id="photo-filename" class="font-semibold text-white truncate max-w-[180px]">photo.jpg</p>
+                    <p class="text-[10px] text-emerald-400 font-bold">Image Loaded Successfully</p>
+                </div>
+            </div>
+
+            <div class="space-y-2">
+                <p class="text-[10px] font-extrabold text-cyan-300 uppercase tracking-wider">Conversion Tools</p>
+                
+                <button onclick="applyPhotoAsTexture('diffuse')" class="w-full liquid-btn p-2.5 text-xs text-left text-white font-medium flex items-center gap-2">
+                    <i class="fa-solid fa-paint-roller text-cyan-400"></i> Apply as Texture Map
+                </button>
+
+                <button onclick="applyPhotoAsTexture('bump')" class="w-full liquid-btn p-2.5 text-xs text-left text-white font-medium flex items-center gap-2">
+                    <i class="fa-solid fa-hill-rockslide text-amber-400"></i> Apply as Bump/Normal Detail
+                </button>
+
+                <button onclick="createPhotoHeightmap()" class="w-full liquid-btn p-2.5 text-xs text-left text-white font-medium flex items-center gap-2">
+                    <i class="fa-solid fa-mountain text-fuchsia-400"></i> Extrude Photo to 3D Relief Mesh
+                </button>
+
+                <button onclick="createPhotoDecalBillboard()" class="w-full liquid-btn p-2.5 text-xs text-left text-white font-medium flex items-center gap-2">
+                    <i class="fa-solid fa-clone text-emerald-400"></i> Create Photo Decal / Billboard
+                </button>
+            </div>
+
+            <div class="space-y-1 pt-2 border-t border-white/10">
+                <div class="flex justify-between text-xs text-white/80">
+                    <span>Extrusion Relief Height</span>
+                    <span id="height-val">1.0</span>
+                </div>
+                <input type="range" id="heightmap-depth" min="0.1" max="4.0" step="0.1" value="1.0" class="w-full accent-fuchsia-400" oninput="document.getElementById('height-val').innerText=this.value">
+            </div>
+        </div>
+    </div>
+
+    <div id="sculpt-panel" class="hidden absolute top-16 left-3 right-3 sm:left-4 sm:w-80 z-30 liquid-glass p-4 pointer-events-auto max-h-[80vh] overflow-y-auto">
+        <div class="flex items-center justify-between mb-3">
+            <h3 class="font-bold text-sm text-white flex items-center gap-2">
+                <i class="fa-solid fa-hand-pointer text-pink-400"></i> Mesh Sculpting Brush
+            </h3>
+            <button onclick="togglePanel('sculpt-panel')" class="text-white/60 hover:text-white"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+
+        <div class="space-y-3 text-xs">
+            <div class="flex items-center justify-between">
+                <span>Sculpt Mode</span>
+                <input type="checkbox" id="sculpt-active-toggle" onchange="toggleSculpting(this.checked)" class="w-4 h-4 accent-pink-500">
+            </div>
+
+            <div>
+                <label class="text-white/70 block mb-1">Brush Mode</label>
+                <select id="sculpt-mode-select" class="w-full bg-black/40 border border-white/20 rounded-lg p-2 text-white">
+                    <option value="push">Push (Pull Outward)</option>
+                    <option value="pull">Pull (Indent Inward)</option>
+                    <option value="smooth">Smooth Vertices</option>
+                </select>
+            </div>
+
+            <div>
+                <div class="flex justify-between text-white/70 mb-1"><span>Brush Radius</span><span id="brush-rad-val">0.5</span></div>
+                <input type="range" id="sculpt-radius" min="0.1" max="2.0" step="0.1" value="0.5" class="w-full accent-pink-400" oninput="document.getElementById('brush-rad-val').innerText=this.value">
+            </div>
+
+            <div>
+                <div class="flex justify-between text-white/70 mb-1"><span>Brush Intensity</span><span id="brush-int-val">0.2</span></div>
+                <input type="range" id="sculpt-intensity" min="0.05" max="0.8" step="0.05" value="0.2" class="w-full accent-pink-400" oninput="document.getElementById('brush-int-val').innerText=this.value">
+            </div>
+
+            <p class="text-[10px] text-pink-300/80 italic">Tip: Click and drag over selected 3D mesh surface to sculpt vertices in real-time!</p>
+        </div>
+    </div>
+
+    <div id="voxel-panel" class="hidden absolute top-16 left-3 right-3 sm:left-4 sm:w-80 z-30 liquid-glass p-4 pointer-events-auto max-h-[80vh] overflow-y-auto">
+        <div class="flex items-center justify-between mb-3">
+            <h3 class="font-bold text-sm text-white flex items-center gap-2">
+                <i class="fa-solid fa-cubes text-emerald-400"></i> 3D Voxel Builder
+            </h3>
+            <button onclick="togglePanel('voxel-panel')" class="text-white/60 hover:text-white"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+
+        <div class="space-y-3 text-xs">
+            <div class="flex items-center justify-between">
+                <span>Voxel Placement Mode</span>
+                <input type="checkbox" id="voxel-active-toggle" onchange="toggleVoxelMode(this.checked)" class="w-4 h-4 accent-emerald-500">
+            </div>
+
+            <div>
+                <label class="text-white/70 block mb-1">Active Voxel Color</label>
+                <input type="color" id="voxel-color-picker" value="#10b981" class="w-full h-8 bg-transparent rounded cursor-pointer border border-white/20">
+            </div>
+
+            <div class="grid grid-cols-2 gap-2">
+                <button onclick="setVoxelAction('add')" id="voxel-add-btn" class="liquid-btn p-2 text-center text-emerald-300 font-bold bg-white/20">Add Voxel</button>
+                <button onclick="setVoxelAction('remove')" id="voxel-remove-btn" class="liquid-btn p-2 text-center text-rose-300 font-bold">Remove Voxel</button>
+            </div>
+
+            <p class="text-[10px] text-emerald-300/80 italic">Click on grid floor or existing voxels to build 3D pixel art / voxel models instantly!</p>
+        </div>
+    </div>
+
+    <div id="pro-tools-panel" class="hidden absolute top-16 left-3 right-3 sm:left-4 sm:w-88 z-30 liquid-glass p-4 pointer-events-auto max-h-[80vh] overflow-y-auto">
+        <div class="flex items-center justify-between mb-3">
+            <h3 class="font-bold text-sm text-white flex items-center gap-2">
+                <i class="fa-solid fa-wand-magic-sparkles text-amber-400"></i> Advanced Pro Tools
+            </h3>
+            <button onclick="togglePanel('pro-tools-panel')" class="text-white/60 hover:text-white"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+
+        <div class="space-y-4 text-xs">
+            <!-- Procedural Textures -->
+            <div class="space-y-2">
+                <p class="font-bold text-amber-300 uppercase tracking-wider text-[10px]">Procedural Pattern Generator</p>
+                <div class="grid grid-cols-2 gap-2">
+                    <button onclick="generateProceduralTexture('checker')" class="liquid-btn p-2 flex items-center gap-1.5"><i class="fa-solid fa-border-all text-cyan-400"></i> Checkerboard</button>
+                    <button onclick="generateProceduralTexture('grid')" class="liquid-btn p-2 flex items-center gap-1.5"><i class="fa-solid fa-table-cells text-emerald-400"></i> Sci-Fi Grid</button>
+                    <button onclick="generateProceduralTexture('noise')" class="liquid-btn p-2 flex items-center gap-1.5"><i class="fa-solid fa-water text-purple-400"></i> Noise</button>
+                    <button onclick="generateProceduralTexture('stripes')" class="liquid-btn p-2 flex items-center gap-1.5"><i class="fa-solid fa-bars text-amber-400"></i> Stripes</button>
+                </div>
+            </div>
+
+            <!-- Text to 3D Extruder -->
+            <div class="space-y-2 pt-3 border-t border-white/10">
+                <p class="font-bold text-amber-300 uppercase tracking-wider text-[10px]">3D Text Extruder</p>
+                <div class="flex gap-2">
+                    <input type="text" id="3d-text-input" placeholder="Type text..." value="3D GLB" class="flex-1 bg-black/40 border border-white/20 rounded-lg px-2 py-1 text-white text-xs">
+                    <button onclick="generate3DText()" class="liquid-btn px-3 py-1 bg-amber-500/20 text-amber-300 font-bold">Extrude</button>
+                </div>
+            </div>
+
+            <!-- Animation Preset Rigging -->
+            <div class="space-y-2 pt-3 border-t border-white/10">
+                <p class="font-bold text-amber-300 uppercase tracking-wider text-[10px]">Animation Preset Rigger</p>
+                <select id="anim-preset-select" onchange="applyAnimationPreset(this.value)" class="w-full bg-black/40 border border-white/20 rounded-lg p-2 text-white">
+                    <option value="none">None (Static)</option>
+                    <option value="spin">Turntable Spin</option>
+                    <option value="bob">Idle Bob / Floating</option>
+                    <option value="pulse">Heartbeat Pulse</option>
+                </select>
+            </div>
+        </div>
+    </div>
+
+    <div id="inspector-panel" class="hidden absolute top-16 right-3 sm:right-4 w-72 sm:w-84 z-30 liquid-glass p-4 pointer-events-auto max-h-[82vh] overflow-y-auto">
+        <div class="flex items-center justify-between mb-3">
+            <h3 class="font-bold text-sm text-white flex items-center gap-2">
+                <i class="fa-solid fa-sliders text-cyan-400"></i> Inspector & Materials
+            </h3>
+            <button onclick="togglePanel('inspector-panel')" class="text-white/60 hover:text-white"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+
+        <div id="inspector-content" class="space-y-4">
+            <p id="no-selection-msg" class="text-xs text-white/50 text-center py-6">No object selected. Click any mesh in the 3D scene.</p>
+
+            <div id="material-controls" class="hidden space-y-3 text-xs">
+                <div>
+                    <label class="text-white/70 block mb-1">Object Name</label>
+                    <input type="text" id="obj-name" onchange="updateObjectName(this.value)" class="w-full bg-black/40 border border-white/20 rounded-lg px-2.5 py-1.5 text-xs text-white">
+                </div>
+
+                <!-- Palette Colors -->
+                <div class="grid grid-cols-2 gap-2">
+                    <div>
+                        <label class="text-white/70 block mb-1">Color Map</label>
+                        <input type="color" id="mat-color" onchange="updateMaterialProperty('color', this.value)" class="w-full h-8 bg-transparent rounded cursor-pointer border border-white/20">
+                    </div>
+                    <div>
+                        <label class="text-white/70 block mb-1">Emissive Glow</label>
+                        <input type="color" id="mat-emissive" onchange="updateMaterialProperty('emissive', this.value)" class="w-full h-8 bg-transparent rounded cursor-pointer border border-white/20">
+                    </div>
+                </div>
+
+                <!-- PBR Sliders -->
+                <div class="space-y-2">
+                    <div>
+                        <div class="flex justify-between text-white/70"><span>Roughness</span><span id="rough-val">0.4</span></div>
+                        <input type="range" id="mat-roughness" min="0" max="1" step="0.05" value="0.4" class="w-full accent-cyan-400" oninput="updateMaterialProperty('roughness', parseFloat(this.value)); document.getElementById('rough-val').innerText=this.value">
+                    </div>
+
+                    <div>
+                        <div class="flex justify-between text-white/70"><span>Metalness</span><span id="metal-val">0.1</span></div>
+                        <input type="range" id="mat-metalness" min="0" max="1" step="0.05" value="0.1" class="w-full accent-cyan-400" oninput="updateMaterialProperty('metalness', parseFloat(this.value)); document.getElementById('metal-val').innerText=this.value">
+                    </div>
+
+                    <div>
+                        <div class="flex justify-between text-white/70"><span>Clearcoat</span><span id="coat-val">0.0</span></div>
+                        <input type="range" id="mat-clearcoat" min="0" max="1" step="0.05" value="0.0" class="w-full accent-cyan-400" oninput="updateMaterialProperty('clearcoat', parseFloat(this.value)); document.getElementById('coat-val').innerText=this.value">
+                    </div>
+                </div>
+
+                <!-- Toggles -->
+                <div class="flex items-center justify-between pt-2 border-t border-white/10">
+                    <span>Wireframe View</span>
+                    <input type="checkbox" id="mat-wireframe" onchange="updateMaterialProperty('wireframe', this.checked)" class="w-4 h-4 accent-cyan-400">
+                </div>
+
+                <div class="flex items-center justify-between">
+                    <span>Flat Shading (Low-Poly)</span>
+                    <input type="checkbox" id="mat-flat" onchange="updateMaterialProperty('flatShading', this.checked)" class="w-4 h-4 accent-cyan-400">
+                </div>
+
+                <!-- Action Buttons -->
+                <div class="pt-3 border-t border-white/10 flex gap-2">
+                    <button onclick="duplicateSelectedObject()" class="flex-1 liquid-btn py-2 text-white font-semibold"><i class="fa-regular fa-copy"></i> Duplicate</button>
+                    <button onclick="deleteSelectedObject()" class="flex-1 liquid-btn py-2 text-rose-300 font-semibold bg-rose-500/20 border-rose-400/30"><i class="fa-solid fa-trash"></i> Delete</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="hierarchy-panel" class="hidden absolute top-16 left-3 sm:left-4 w-72 sm:w-80 z-30 liquid-glass p-4 pointer-events-auto max-h-[75vh] overflow-y-auto">
+        <div class="flex items-center justify-between mb-3">
+            <h3 class="font-bold text-sm text-white flex items-center gap-2">
+                <i class="fa-solid fa-layer-group text-cyan-400"></i> Scene Hierarchy
+            </h3>
+            <button onclick="togglePanel('hierarchy-panel')" class="text-white/60 hover:text-white"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        
+        <div id="hierarchy-tree" class="space-y-1">
+            <!-- Dynamically Populated Scene Nodes -->
+        </div>
+    </div>
+
+    <div id="playtest-ui" class="hidden absolute inset-0 z-20 pointer-events-none">
+        <div class="absolute top-16 left-1/2 -translate-x-1/2 liquid-pill px-4 py-1.5 text-xs text-emerald-300 font-bold flex items-center gap-2 shadow-2xl">
+            <span class="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping"></span>
+            Playtest Playground Active
+        </div>
+
+        <!-- Touch Virtual Joystick -->
+        <div class="absolute bottom-8 left-8 pointer-events-auto">
+            <div id="joystick-zone" class="joystick-container">
+                <div id="joystick-knob" class="joystick-knob"></div>
+            </div>
+        </div>
+
+        <!-- Touch Action Jump Button -->
+        <div class="absolute bottom-8 right-8 pointer-events-auto">
+            <button id="jump-btn" class="w-16 h-16 rounded-full bg-white/20 backdrop-blur-md border border-white/40 active:bg-white/40 text-white font-extrabold text-sm flex items-center justify-center shadow-2xl">
+                JUMP
+            </button>
+        </div>
+    </div>
+
+    <!-- Notification Toast Sheet -->
+    <div id="toast" class="hidden fixed bottom-20 left-1/2 -translate-x-1/2 z-50 liquid-pill px-5 py-2.5 text-xs font-bold text-white shadow-2xl border border-white/30 transition-all">
+        Notification Message
+    </div>
+
+    <script>
+        // Engine Core Globals
+        let scene, camera, renderer, orbitControls, transformControls;
+        let objectsGroup;
+        let selectedObject = null;
+        let activePhotoTexture = null;
+        let studioMode = 'quick'; // 'quick' or 'pro'
+        let currentEngineMode = 'edit'; // 'edit' or 'play'
+
+        // Sculpting Engine Globals
+        let isSculpting = false;
+        const sculptRaycaster = new THREE.Raycaster();
+        const sculptMouse = new THREE.Vector2();
+
+        // Voxel Engine Globals
+        let isVoxelMode = false;
+        let voxelAction = 'add'; // 'add' or 'remove'
+        let voxelGridSize = 0.5;
+
+        // Playtest Physics State
+        let playerMesh = null;
+        let playerVelocity = new THREE.Vector3();
+        let joystickInput = { x: 0, y: 0 };
+        let isGrounded = true;
+
+        // Boot Engine on Window Load
+        window.onload = function() {
+            initEngine();
+            setupSculptAndVoxelListeners();
+            setupJoystick();
+            animate();
+            setupWindowResize();
+        };
+
+        function initEngine() {
+            const container = document.getElementById('canvas-container');
+
+            // 1. Scene Setup
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x060713);
+            scene.fog = new THREE.FogExp2(0x060713, 0.025);
+
+            // 2. Camera Setup
+            camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
+            camera.position.set(6, 5, 8);
+
+            // 3. Renderer Setup
+            renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, preserveDrawingBuffer: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            renderer.shadowMap.enabled = true;
+            renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+            renderer.toneMapping = THREE.ACESFilmicToneMapping;
+            renderer.toneMappingExposure = 1.15;
+            container.appendChild(renderer.domElement);
+
+            // 4. Lighting Rig
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.75);
+            scene.add(ambientLight);
+
+            const mainDirLight = new THREE.DirectionalLight(0xffffff, 1.25);
+            mainDirLight.position.set(12, 24, 16);
+            mainDirLight.castShadow = true;
+            mainDirLight.shadow.mapSize.width = 1024;
+            mainDirLight.shadow.mapSize.height = 1024;
+            scene.add(mainDirLight);
+
+            const fillLight = new THREE.PointLight(0x06b6d4, 1.2, 15);
+            fillLight.position.set(-8, 6, -8);
+            scene.add(fillLight);
+
+            // 5. Studio Floor Grid
+            const gridHelper = new THREE.GridHelper(30, 30, 0x06b6d4, 0x1e293b);
+            gridHelper.position.y = -0.01;
+            scene.add(gridHelper);
+
+            // 6. Root Scene Objects Container
+            objectsGroup = new THREE.Group();
+            objectsGroup.name = "Scene_Objects";
+            scene.add(objectsGroup);
+
+            // 7. Controls
+            orbitControls = new THREE.OrbitControls(camera, renderer.domElement);
+            orbitControls.enableDamping = true;
+            orbitControls.dampingFactor = 0.05;
+
+            transformControls = new THREE.TransformControls(camera, renderer.domElement);
+            transformControls.size = 0.75;
+            transformControls.addEventListener('dragging-changed', function (event) {
+                orbitControls.enabled = !event.value;
+            });
+            scene.add(transformControls);
+
+            // 8. Raycasting Selection Setup
+            setupRaycastingSelection();
+
+            // Default Starter Mesh
+            addPrimitive('cube');
+
+            showToast("3D GLB Studio Loaded & Ready!");
+        }
+
+        function setupRaycastingSelection() {
+            const raycaster = new THREE.Raycaster();
+            const mouse = new THREE.Vector2();
+
+            renderer.domElement.addEventListener('pointerdown', (e) => {
+                if (currentEngineMode !== 'edit' || transformControls.dragging || isSculpting || isVoxelMode) return;
+
+                mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
+                mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
+
+                raycaster.setFromCamera(mouse, camera);
+                const intersects = raycaster.intersectObjects(objectsGroup.children, true);
+
+                if (intersects.length > 0) {
+                    let rootObj = intersects[0].object;
+                    while (rootObj.parent && rootObj.parent !== objectsGroup) {
+                        rootObj = rootObj.parent;
+                    }
+                    selectObject(rootObj);
+                }
+            });
+        }
+
+        function selectObject(obj) {
+            selectedObject = obj;
+            if (obj) {
+                transformControls.attach(obj);
+                updateInspectorUI();
+            } else {
+                transformControls.detach();
+                updateInspectorUI();
+            }
+            updateHierarchyTree();
+        }
+
+        function addPrimitive(type) {
+            let geometry;
+            switch(type) {
+                case 'cube': geometry = new THREE.BoxGeometry(1.5, 1.5, 1.5, 12, 12, 12); break;
+                case 'sphere': geometry = new THREE.SphereGeometry(1, 32, 32); break;
+                case 'cylinder': geometry = new THREE.CylinderGeometry(0.8, 0.8, 2, 32); break;
+                case 'capsule': geometry = new THREE.CapsuleGeometry(0.7, 1.2, 16, 32); break;
+                case 'cone': geometry = new THREE.ConeGeometry(1, 2, 32); break;
+                case 'torus': geometry = new THREE.TorusGeometry(1, 0.4, 16, 64); break;
+                case 'ramp': geometry = createRampGeometry(); break;
+                case 'staircase': geometry = createStaircaseGeometry(); break;
+                case 'pipe': geometry = new THREE.CylinderGeometry(0.8, 0.8, 2, 32, 1, true); break;
+                case 'dodecahedron': geometry = new THREE.DodecahedronGeometry(1.2); break;
+                case 'ring': geometry = new THREE.RingGeometry(0.5, 1.2, 32); break;
+                case 'plane': geometry = new THREE.PlaneGeometry(3, 3, 16, 16); break;
+                default: geometry = new THREE.BoxGeometry(1.5, 1.5, 1.5);
+            }
+
+            const material = new THREE.MeshStandardMaterial({
+                color: 0x06b6d4,
+                roughness: 0.35,
+                metalness: 0.15
+            });
+
+            const mesh = new THREE.Mesh(geometry, material);
+            mesh.position.set(0, 1, 0);
+            mesh.castShadow = true;
+            mesh.receiveShadow = true;
+            mesh.name = `${type.charAt(0).toUpperCase() + type.slice(1)}_${objectsGroup.children.length + 1}`;
+
+            objectsGroup.add(mesh);
+            selectObject(mesh);
+        }
+
+        function createRampGeometry() {
+            const shape = new THREE.Shape();
+            shape.moveTo(0, 0);
+            shape.lineTo(2, 0);
+            shape.lineTo(0, 1.5);
+            shape.closePath();
+
+            const extrudeSettings = { depth: 1.5, bevelEnabled: false };
+            return new THREE.ExtrudeGeometry(shape, extrudeSettings);
+        }
+
+        function createStaircaseGeometry() {
+            const group = new THREE.Group();
+            for(let i = 0; i < 5; i++) {
+                const step = new THREE.Mesh(
+                    new THREE.BoxGeometry(1.5, 0.3, 0.4),
+                    new THREE.MeshStandardMaterial({ color: 0x06b6d4 })
+                );
+                step.position.set(0, i * 0.3 + 0.15, i * 0.4);
+                group.add(step);
+            }
+            return new THREE.BoxGeometry(1,1,1); // Fallback geometry for container
+        }
+
+        function loadStarterTemplate(template) {
+            const group = new THREE.Group();
+            group.name = `Template_${template.toUpperCase()}`;
+
+            if (template === 'sword') {
+                const blade = new THREE.Mesh(new THREE.BoxGeometry(0.2, 3, 0.08), new THREE.MeshStandardMaterial({ color: 0xe2e8f0, metalness: 0.95, roughness: 0.1 }));
+                blade.position.y = 2;
+                const guard = new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.15, 0.25), new THREE.MeshStandardMaterial({ color: 0xf59e0b, metalness: 0.8, roughness: 0.3 }));
+                guard.position.y = 0.5;
+                const handle = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.09, 0.8), new THREE.MeshStandardMaterial({ color: 0x78350f, roughness: 0.8 }));
+                handle.position.y = 0.1;
+                group.add(blade, guard, handle);
+            } else if (template === 'tree') {
+                const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.4, 1.5, 8), new THREE.MeshStandardMaterial({ color: 0x78350f, roughness: 0.9 }));
+                trunk.position.y = 0.75;
+                const folMat = new THREE.MeshStandardMaterial({ color: 0x10b981, flatShading: true });
+                const f1 = new THREE.Mesh(new THREE.ConeGeometry(1.3, 1.6, 8), folMat);
+                f1.position.y = 2;
+                const f2 = new THREE.Mesh(new THREE.ConeGeometry(1.0, 1.3, 8), folMat);
+                f2.position.y = 2.8;
+                group.add(trunk, f1, f2);
+            } else if (template === 'crate') {
+                const crate = new THREE.Mesh(new THREE.BoxGeometry(1.5, 1.5, 1.5), new THREE.MeshStandardMaterial({ color: 0x3b82f6, roughness: 0.4, metalness: 0.6 }));
+                crate.position.y = 0.75;
+                group.add(crate);
+            } else if (template === 'barrel') {
+                const barrel = new THREE.Mesh(new THREE.CylinderGeometry(0.8, 0.8, 1.8, 16), new THREE.MeshStandardMaterial({ color: 0xe11d48, roughness: 0.5 }));
+                barrel.position.y = 0.9;
+                group.add(barrel);
+            } else if (template === 'chest') {
+                const base = new THREE.Mesh(new THREE.BoxGeometry(1.6, 1, 1), new THREE.MeshStandardMaterial({ color: 0x854d0e }));
+                base.position.y = 0.5;
+                const lid = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.5, 1.6, 16, 1, false, 0, Math.PI), new THREE.MeshStandardMaterial({ color: 0xa16207 }));
+                lid.rotation.z = Math.PI / 2;
+                lid.position.y = 1;
+                group.add(base, lid);
+            } else if (template === 'dummy') {
+                const head = new THREE.Mesh(new THREE.SphereGeometry(0.4, 16, 16), new THREE.MeshStandardMaterial({ color: 0x6366f1 }));
+                head.position.y = 2.2;
+                const body = new THREE.Mesh(new THREE.CylinderGeometry(0.4, 0.3, 1.2, 16), new THREE.MeshStandardMaterial({ color: 0x4f46e5 }));
+                body.position.y = 1.3;
+                group.add(head, body);
+            }
+
+            objectsGroup.add(group);
+            selectObject(group);
+            showToast(`Loaded ${template} preset!`);
+        }
+
+        function handlePhonePhotoUpload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const imgUrl = e.target.result;
+                document.getElementById('photo-preview').src = imgUrl;
+                document.getElementById('photo-filename').innerText = file.name;
+                document.getElementById('photo-options').classList.remove('hidden');
+
+                const loader = new THREE.TextureLoader();
+                loader.load(imgUrl, (tex) => {
+                    activePhotoTexture = tex;
+                    activePhotoTexture.encoding = THREE.sRGBEncoding;
+                    showToast("Photo loaded into Gallery 3D!");
+                });
+            };
+            reader.readAsDataURL(file);
+        }
+
+        function applyPhotoAsTexture(mapType) {
+            if (!selectedObject) {
+                showToast("Please select a 3D mesh first!");
+                return;
+            }
+            if (!activePhotoTexture) return;
+
+            selectedObject.traverse((child) => {
+                if (child.isMesh) {
+                    if (mapType === 'diffuse') {
+                        child.material.map = activePhotoTexture;
+                    } else if (mapType === 'bump') {
+                        child.material.bumpMap = activePhotoTexture;
+                        child.material.bumpScale = 0.15;
+                    }
+                    child.material.needsUpdate = true;
+                }
+            });
+            showToast(`Applied photo as ${mapType} texture!`);
+        }
+
+        function createPhotoHeightmap() {
+            if (!activePhotoTexture) return;
+
+            const depth = parseFloat(document.getElementById('heightmap-depth').value) || 1.0;
+            const img = document.getElementById('photo-preview');
+            
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            const width = 64;
+            const height = 64;
+            canvas.width = width;
+            canvas.height = height;
+            ctx.drawImage(img, 0, 0, width, height);
+            const imgData = ctx.getImageData(0, 0, width, height).data;
+
+            const geometry = new THREE.PlaneGeometry(3.5, 3.5, width - 1, height - 1);
+            const posAttr = geometry.attributes.position;
+
+            for (let i = 0; i < posAttr.count; i++) {
+                const r = imgData[i * 4];
+                const g = imgData[i * 4 + 1];
+                const b = imgData[i * 4 + 2];
+                const brightness = (r + g + b) / 3 / 255;
+                posAttr.setZ(i, brightness * depth);
+            }
+
+            geometry.computeVertexNormals();
+
+            const material = new THREE.MeshStandardMaterial({
+                map: activePhotoTexture,
+                roughness: 0.4,
+                side: THREE.DoubleSide
+            });
+
+            const mesh = new THREE.Mesh(geometry, material);
+            mesh.rotation.x = -Math.PI / 2;
+            mesh.name = "Photo_3D_Relief";
+            mesh.castShadow = true;
+
+            objectsGroup.add(mesh);
+            selectObject(mesh);
+            showToast("Generated 3D Relief Mesh!");
+        }
+
+        function createPhotoDecalBillboard() {
+            if (!activePhotoTexture) return;
+
+            const geometry = new THREE.PlaneGeometry(2, 2);
+            const material = new THREE.MeshStandardMaterial({
+                map: activePhotoTexture,
+                transparent: true,
+                side: THREE.DoubleSide
+            });
+
+            const mesh = new THREE.Mesh(geometry, material);
+            mesh.position.y = 1;
+            mesh.name = "Photo_Decal";
+            
+            objectsGroup.add(mesh);
+            selectObject(mesh);
+            showToast("Created Photo Decal!");
+        }
+
+        function setupSculptAndVoxelListeners() {
+            const container = renderer.domElement;
+
+            container.addEventListener('pointermove', (e) => {
+                if (!isSculpting || !selectedObject) return;
+
+                sculptMouse.x = (e.clientX / window.innerWidth) * 2 - 1;
+                sculptMouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
+
+                sculptRaycaster.setFromCamera(sculptMouse, camera);
+                const intersects = sculptRaycaster.intersectObject(selectedObject, true);
+
+                if (intersects.length > 0 && e.buttons === 1) {
+                    const hit = intersects[0];
+                    sculptMeshVertices(hit.object, hit.point);
+                }
+            });
+        }
+
+        function toggleSculpting(active) {
+            isSculpting = active;
+            orbitControls.enabled = !active;
+            if (active) showToast("Sculpting Enabled! Drag over mesh to deform.");
+        }
+
+        function sculptMeshVertices(mesh, point) {
+            if (!mesh.geometry || !mesh.geometry.attributes.position) return;
+
+            const radius = parseFloat(document.getElementById('sculpt-radius').value) || 0.5;
+            const intensity = parseFloat(document.getElementById('sculpt-intensity').value) || 0.2;
+            const mode = document.getElementById('sculpt-mode-select').value;
+
+            const pos = mesh.geometry.attributes.position;
+            const localPoint = mesh.worldToLocal(point.clone());
+
+            for (let i = 0; i < pos.count; i++) {
+                const vx = pos.getX(i);
+                const vy = pos.getY(i);
+                const vz = pos.getZ(i);
+
+                const dist = Math.hypot(vx - localPoint.x, vy - localPoint.y, vz - localPoint.z);
+
+                if (dist < radius) {
+                    const falloff = (1 - dist / radius) * intensity;
+                    if (mode === 'push') {
+                        pos.setY(i, vy + falloff);
+                    } else if (mode === 'pull') {
+                        pos.setY(i, vy - falloff);
+                    } else if (mode === 'smooth') {
+                        pos.setY(i, vy * 0.9);
+                    }
+                }
+            }
+
+            pos.needsUpdate = true;
+            mesh.geometry.computeVertexNormals();
+        }
+
+        function toggleVoxelMode(active) {
+            isVoxelMode = active;
+            orbitControls.enabled = !active;
+            if (active) showToast("Voxel Builder Enabled! Click floor/cubes to build.");
+        }
+
+        function setVoxelAction(action) {
+            voxelAction = action;
+            document.getElementById('voxel-add-btn').classList.toggle('bg-white/20', action === 'add');
+            document.getElementById('voxel-remove-btn').classList.toggle('bg-white/20', action === 'remove');
+        }
+
+        function generateProceduralTexture(type) {
+            if (!selectedObject) {
+                showToast("Please select a 3D mesh first!");
+                return;
+            }
+
+            const canvas = document.createElement('canvas');
+            canvas.width = 256;
+            canvas.height = 256;
+            const ctx = canvas.getContext('2d');
+
+            if (type === 'checker') {
+                for (let x = 0; x < 8; x++) {
+                    for (let y = 0; y < 8; y++) {
+                        ctx.fillStyle = (x + y) % 2 === 0 ? '#06b6d4' : '#0f172a';
+                        ctx.fillRect(x * 32, y * 32, 32, 32);
+                    }
+                }
+            } else if (type === 'grid') {
+                ctx.fillStyle = '#090d16';
+                ctx.fillRect(0, 0, 256, 256);
+                ctx.strokeStyle = '#06b6d4';
+                ctx.lineWidth = 4;
+                for (let i = 0; i < 256; i += 32) {
+                    ctx.strokeRect(i, 0, 32, 256);
+                    ctx.strokeRect(0, i, 256, 32);
+                }
+            } else if (type === 'stripes') {
+                for (let i = 0; i < 256; i += 32) {
+                    ctx.fillStyle = i % 64 === 0 ? '#3b82f6' : '#ec4899';
+                    ctx.fillRect(i, 0, 32, 256);
+                }
+            } else if (type === 'noise') {
+                const imgData = ctx.createImageData(256, 256);
+                for (let i = 0; i < imgData.data.length; i += 4) {
+                    const val = Math.floor(Math.random() * 255);
+                    imgData.data[i] = val;
+                    imgData.data[i + 1] = val;
+                    imgData.data[i + 2] = val;
+                    imgData.data[i + 3] = 255;
+                }
+                ctx.putImageData(imgData, 0, 0);
+            }
+
+            const texture = new THREE.CanvasTexture(canvas);
+            selectedObject.traverse((child) => {
+                if (child.isMesh) {
+                    child.material.map = texture;
+                    child.material.needsUpdate = true;
+                }
+            });
+            showToast(`Generated ${type} procedural texture!`);
+        }
+
+        function updateInspectorUI() {
+            const container = document.getElementById('material-controls');
+            const noSelMsg = document.getElementById('no-selection-msg');
+
+            if (!selectedObject) {
+                container.classList.add('hidden');
+                noSelMsg.classList.remove('hidden');
+                return;
+            }
+
+            container.classList.remove('hidden');
+            noSelMsg.classList.add('hidden');
+
+            document.getElementById('obj-name').value = selectedObject.name || "Object";
+
+            let mesh = selectedObject;
+            if (!mesh.material && selectedObject.children.length > 0) {
+                mesh = selectedObject.children[0];
+            }
+
+            if (mesh && mesh.material) {
+                document.getElementById('mat-color').value = '#' + (mesh.material.color ? mesh.material.color.getHexString() : '00c6ff');
+                document.getElementById('mat-roughness').value = mesh.material.roughness ?? 0.4;
+                document.getElementById('mat-metalness').value = mesh.material.metalness ?? 0.1;
+                document.getElementById('mat-wireframe').checked = mesh.material.wireframe || false;
+            }
+        }
+
+        function updateMaterialProperty(prop, val) {
+            if (!selectedObject) return;
+            selectedObject.traverse((child) => {
+                if (child.isMesh && child.material) {
+                    if (prop === 'color' || prop === 'emissive') {
+                        child.material[prop].set(val);
+                    } else {
+                        child.material[prop] = val;
+                    }
+                    child.material.needsUpdate = true;
+                }
+            });
+        }
+
+        function updateObjectName(val) {
+            if (selectedObject) {
+                selectedObject.name = val;
+                updateHierarchyTree();
+            }
+        }
+
+        function duplicateSelectedObject() {
+            if (!selectedObject) return;
+            const clone = selectedObject.clone(true);
+            clone.position.x += 1;
+            clone.name = selectedObject.name + "_Copy";
+            objectsGroup.add(clone);
+            selectObject(clone);
+            showToast("Object Duplicated!");
+        }
+
+        function deleteSelectedObject() {
+            if (!selectedObject) return;
+            transformControls.detach();
+            objectsGroup.remove(selectedObject);
+            selectedObject = null;
+            updateInspectorUI();
+            updateHierarchyTree();
+            showToast("Object Deleted!");
+        }
+
+        function updateHierarchyTree() {
+            const tree = document.getElementById('hierarchy-tree');
+            tree.innerHTML = '';
+
+            objectsGroup.children.forEach((child) => {
+                const item = document.createElement('div');
+                const isSelected = selectedObject === child;
+                item.className = `liquid-btn p-2 text-xs flex items-center justify-between cursor-pointer ${isSelected ? 'bg-cyan-500/30 border-cyan-400' : ''}`;
+                
+                item.innerHTML = `
+                    <span class="truncate font-medium text-white"><i class="fa-solid fa-cube text-cyan-400 mr-2"></i>${child.name}</span>
+                    <button onclick="event.stopPropagation(); toggleVisibility('${child.uuid}')" class="text-white/60 hover:text-white">
+                        <i class="fa-solid ${child.visible ? 'fa-eye' : 'fa-eye-slash'}"></i>
+                    </button>
+                `;
+                item.onclick = () => selectObject(child);
+                tree.appendChild(item);
+            });
+        }
+
+        function toggleVisibility(uuid) {
+            const obj = objectsGroup.children.find(c => c.uuid === uuid);
+            if (obj) {
+                obj.visible = !obj.visible;
+                updateHierarchyTree();
+            }
+        }
+
+        function importModelFile(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const filename = file.name.toLowerCase();
+            const reader = new FileReader();
+
+            if (filename.endsWith('.glb') || filename.endsWith('.gltf')) {
+                reader.onload = function(e) {
+                    const loader = new THREE.GLTFLoader();
+                    loader.parse(e.target.result, '', (gltf) => {
+                        const importedMesh = gltf.scene;
+                        importedMesh.name = file.name;
+                        objectsGroup.add(importedMesh);
+                        selectObject(importedMesh);
+                        showToast("GLB Model Imported!");
+                    });
+                };
+                reader.readAsArrayBuffer(file);
+            } else if (filename.endsWith('.obj')) {
+                reader.onload = function(e) {
+                    const loader = new THREE.OBJLoader();
+                    const obj = loader.parse(e.target.result);
+                    obj.name = file.name;
+                    objectsGroup.add(obj);
+                    selectObject(obj);
+                    showToast("OBJ Model Imported!");
+                };
+                reader.readAsText(file);
+            }
+        }
+
+        function exportGLB() {
+            if (objectsGroup.children.length === 0) {
+                showToast("No 3D objects to export!");
+                return;
+            }
+
+            const exporter = new THREE.GLTFExporter();
+            exporter.parse(
+                objectsGroup,
+                function (gltf) {
+                    const blob = new Blob([gltf], { type: 'application/octet-stream' });
+                    const link = document.createElement('a');
+                    link.href = URL.createObjectURL(blob);
+                    link.download = '3D_Game_Asset.glb';
+                    link.click();
+                    showToast("GLB Game Asset Exported!");
+                },
+                function (error) {
+                    showToast("Export Error: " + error);
+                },
+                { binary: true }
+            );
+        }
+
+        function setStudioMode(mode) {
+            studioMode = mode;
+            const badge = document.getElementById('studio-mode-badge');
+            const quickBtn = document.getElementById('mode-quick-btn');
+            const proBtn = document.getElementById('mode-pro-btn');
+            const proDockBtn = document.getElementById('pro-tools-dock-btn');
+
+            if (mode === 'pro') {
+                badge.innerText = "PRO";
+                badge.className = "px-2 py-0.5 rounded-full text-[9px] font-bold bg-amber-500/30 text-amber-300 border border-amber-400/30";
+                proBtn.classList.add('bg-white/20');
+                quickBtn.classList.remove('bg-white/20');
+                proDockBtn.classList.remove('hidden');
+                showToast("Pro Studio Tools Unlocked!");
+            } else {
+                badge.innerText = "QUICK";
+                badge.className = "px-2 py-0.5 rounded-full text-[9px] font-bold bg-cyan-500/30 text-cyan-300 border border-cyan-400/30";
+                quickBtn.classList.add('bg-white/20');
+                proBtn.classList.remove('bg-white/20');
+                proDockBtn.classList.add('hidden');
+            }
+        }
+
+        function switchEngineMode(mode) {
+            currentEngineMode = mode;
+            const buildBar = document.getElementById('build-floating-bar');
+            const playUI = document.getElementById('playtest-ui');
+
+            if (mode === 'play') {
+                buildBar.classList.add('hidden');
+                playUI.classList.remove('hidden');
+                transformControls.detach();
+
+                if (!playerMesh) {
+                    const pGeo = new THREE.CapsuleGeometry(0.4, 0.8, 4, 8);
+                    const pMat = new THREE.MeshStandardMaterial({ color: 0x10b981, roughness: 0.3 });
+                    playerMesh = new THREE.Mesh(pGeo, pMat);
+                    playerMesh.position.set(0, 2, 0);
+                    scene.add(playerMesh);
+                }
+                showToast("Playtest Engine Activated!");
+            } else {
+                buildBar.classList.remove('hidden');
+                playUI.classList.add('hidden');
+
+                if (playerMesh) {
+                    scene.remove(playerMesh);
+                    playerMesh = null;
+                }
+            }
+        }
+
+        function setupJoystick() {
+            const zone = document.getElementById('joystick-zone');
+            const knob = document.getElementById('joystick-knob');
+            let active = false;
+            let startX, startY;
+
+            zone.addEventListener('pointerdown', (e) => {
+                active = true;
+                startX = e.clientX;
+                startY = e.clientY;
+            });
+
+            window.addEventListener('pointermove', (e) => {
+                if (!active) return;
+                const dx = e.clientX - startX;
+                const dy = e.clientY - startY;
+                const dist = Math.min(Math.hypot(dx, dy), 35);
+                const angle = Math.atan2(dy, dx);
+
+                const knobX = Math.cos(angle) * dist;
+                const knobY = Math.sin(angle) * dist;
+
+                knob.style.transform = `translate(${knobX}px, ${knobY}px)`;
+                joystickInput.x = knobX / 35;
+                joystickInput.y = knobY / 35;
+            });
+
+            const resetJoystick = () => {
+                active = false;
+                knob.style.transform = `translate(0px, 0px)`;
+                joystickInput = { x: 0, y: 0 };
+            };
+
+            window.addEventListener('pointerup', resetJoystick);
+            window.addEventListener('pointercancel', resetJoystick);
+
+            document.getElementById('jump-btn').addEventListener('click', () => {
+                if (isGrounded && playerMesh) {
+                    playerVelocity.y = 6.5;
+                    isGrounded = false;
+                }
+            });
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+
+            if (currentEngineMode === 'play' && playerMesh) {
+                const delta = 0.016;
+
+                const moveSpeed = 5.5;
+                playerMesh.position.x += joystickInput.x * moveSpeed * delta;
+                playerMesh.position.z += joystickInput.y * moveSpeed * delta;
+
+                playerVelocity.y -= 16 * delta;
+                playerMesh.position.y += playerVelocity.y * delta;
+
+                if (playerMesh.position.y <= 0.8) {
+                    playerMesh.position.y = 0.8;
+                    playerVelocity.y = 0;
+                    isGrounded = true;
+                }
+
+                camera.position.x = THREE.MathUtils.lerp(camera.position.x, playerMesh.position.x, 0.1);
+                camera.position.z = THREE.MathUtils.lerp(camera.position.z, playerMesh.position.z + 6, 0.1);
+                camera.position.y = THREE.MathUtils.lerp(camera.position.y, playerMesh.position.y + 3.5, 0.1);
+                orbitControls.target.copy(playerMesh.position);
+            } else {
+                orbitControls.update();
+            }
+
+            renderer.render(scene, camera);
+        }
+
+        function setTransformGizmo(mode) {
+            transformControls.setMode(mode);
+            ['translate', 'rotate', 'scale'].forEach(m => {
+                const btn = document.getElementById(`tool-${m}`);
+                btn.classList.toggle('bg-white/20', m === mode);
+                btn.classList.toggle('text-cyan-400', m === mode);
+            });
+        }
+
+        function togglePanel(panelId) {
+            const panels = ['primitives-panel', 'gallery-panel', 'sculpt-panel', 'voxel-panel', 'pro-tools-panel', 'inspector-panel', 'hierarchy-panel'];
+            panels.forEach(id => {
+                const el = document.getElementById(id);
+                if (id === panelId) {
+                    el.classList.toggle('hidden');
+                } else {
+                    el.classList.add('hidden');
+                }
+            });
+        }
+
+        function showToast(msg) {
+            const toast = document.getElementById('toast');
+            toast.innerText = msg;
+            toast.classList.remove('hidden');
+            setTimeout(() => toast.classList.add('hidden'), 3000);
+        }
+
+        function setupWindowResize() {
+            window.addEventListener('resize', () => {
+                camera.aspect = window.innerWidth / window.innerHeight;
+                camera.updateProjectionMatrix();
+                renderer.setSize(window.innerWidth, window.innerHeight);
+            });
+        }
+    </script>
+</body>
+</html>
